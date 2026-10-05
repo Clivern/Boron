@@ -77,6 +77,36 @@ class BridgeClient:
         self._send(cmd)
         return req_id
 
+    def request(self, command: dict[str, Any], timeout: float = 30.0) -> dict[str, Any]:
+        req_id = str(command.get("id") or uuid.uuid4())
+        command = {**command, "id": req_id}
+        done = threading.Event()
+        result: dict[str, Any] = {}
+
+        def handler(event: dict[str, Any]) -> None:
+            if event.get("type") != "response" or event.get("id") != req_id:
+                return
+            result["event"] = event
+            done.set()
+
+        unsub = self.on_event(handler)
+        try:
+            self._send(command)
+            if not done.wait(timeout):
+                raise TimeoutError(f"timed out after {timeout}s waiting for {command.get('type')}")
+            return result["event"]
+        finally:
+            unsub()
+
+    def get_session_stats(self, timeout: float = 30.0) -> dict[str, Any]:
+        reply = self.request({"type": "get_session_stats"}, timeout=timeout)
+        if not reply.get("success", False):
+            raise RuntimeError(reply.get("error") or "get_session_stats failed")
+        data = reply.get("data")
+        if not isinstance(data, dict):
+            raise RuntimeError("get_session_stats returned no data")
+        return data
+
     def prompt_and_wait(
         self,
         message: str,
@@ -155,6 +185,29 @@ def _print_event(event: dict[str, Any], verbose: bool) -> None:
         print(f"\n[{etype}] {json.dumps(event)}", file=sys.stderr)
 
 
+def _print_stats(stats: dict[str, Any]) -> None:
+    tokens = stats.get("tokens") or {}
+    parts = [
+        f"in={tokens.get('input', 0)}",
+        f"out={tokens.get('output', 0)}",
+        f"cache_read={tokens.get('cacheRead', 0)}",
+        f"cache_write={tokens.get('cacheWrite', 0)}",
+        f"total={tokens.get('total', 0)}",
+    ]
+    cost = stats.get("cost")
+    if cost is not None:
+        parts.append(f"cost=${cost}")
+    ctx = stats.get("contextUsage") or {}
+    if ctx:
+        ctx_tokens = ctx.get("tokens")
+        ctx_window = ctx.get("contextWindow")
+        ctx_pct = ctx.get("percent")
+        if ctx_tokens is not None and ctx_window is not None:
+            pct = f" {ctx_pct}%" if ctx_pct is not None else ""
+            parts.append(f"context={ctx_tokens}/{ctx_window}{pct}")
+    print(f"[tokens] {' '.join(parts)}", file=sys.stderr)
+
+
 def _iter_prompts(args: argparse.Namespace) -> Iterator[str]:
     if args.message:
         yield " ".join(args.message)
@@ -206,6 +259,10 @@ def main() -> int:
             try:
                 client.prompt_and_wait(prompt, timeout=args.timeout)
                 print(file=sys.stdout)
+                try:
+                    _print_stats(client.get_session_stats())
+                except (TimeoutError, RuntimeError) as exc:
+                    print(f"[tokens] unavailable: {exc}", file=sys.stderr)
             except TimeoutError as exc:
                 print(f"\n{exc}", file=sys.stderr)
                 return 1
