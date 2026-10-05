@@ -1,6 +1,6 @@
 ## Boron
 
-Docker image that runs `Pi` in `RPC` mode behind a small `TCP` auth bridge.
+Minimalist Docker Sandbox for Spawning Instant, Disposable Agent Workspaces.
 
 ### Build
 
