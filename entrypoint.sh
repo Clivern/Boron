@@ -33,8 +33,8 @@ if [[ -n "${INIT_SCRIPT:-}" ]]; then
   fi
   bash "$repo_script"
 fi
-if [[ -f /out/init.sh ]]; then
-  bash /out/init.sh
+if [[ -f /init.sh ]]; then
+  bash /init.sh
 fi
 
 mkdir -p "${HOME}/.pi/agent"
