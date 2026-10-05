@@ -23,7 +23,7 @@ docker run -d --name boron \
   boron
 ```
 
-`PROXY_URL` should point at an OpenRouter-compatible proxy. Run [Ting](https://github.com/Clivern/Ting) on the host for that — it sits in front of OpenRouter and injects the API key:
+`PROXY_URL` should point at an OpenRouter-compatible proxy. Run [Ting](https://github.com/Clivern/Ting) on the host for that. it sits in front of OpenRouter and injects the API key:
 
 ```bash
 export ZIEE_MGMT_URL=https://ziee.io
@@ -34,7 +34,7 @@ go run ting.go server -c config.dist.yml
 
 ### Client
 
-`client.py` authenticates with the bridge, then speaks Pi’s JSONL RPC protocol. It streams assistant text and waits for `agent_settled`.
+`client.py` authenticates with the bridge, then speaks `Pi JSONL RPC` protocol. It streams assistant text and waits for `agent_settled`.
 
 ```bash
 # one-shot
